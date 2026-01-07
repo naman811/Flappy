@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Flappy Melanie</title>
+<style>
+  body {
+    margin: 0;
+    background: linear-gradient(#ffb6c1, #70c5ce);
+    overflow: hidden;
+    touch-action: manipulation;
+    font-family: Arial, sans-serif;
+  }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+// Duck
+let duck = { x: canvas.width / 4, y: canvas.height / 2, r: 16, v: 0 };
+
+// Game state
+let gravity = 0.45;
+let flap = -8;
+let pipes = [];
+let frame = 0;
+let score = 0;
+let gameOver = false;
+
+// Difficulty
+let speed = 2.5;
+let gapSize = 180;
+
+// Messages
+const problems = [
+  "problems",
+  "bitches",
+  "meanies",
+  "rude ass hoes",
+  "depression",
+  "anxiety",
+  "bad vibes",
+  "overthinking",
+  "capitalism",
+  "emotional damage"
+];
+
+// Specials
+let specialTimer = 0;
+let specialText = "";
+let specialEmoji = "";
+let triggered = {42:false,67:false,69:false,100:false};
+
+function resetGame() {
+  duck.y = canvas.height / 2;
+  duck.v = 0;
+  pipes = [];
+  frame = 0;
+  score = 0;
+  speed = 2.5;
+  gapSize = 180;
+  gameOver = false;
+  specialTimer = 0;
+  triggered = {42:false,67:false,69:false,100:false};
+}
+
+// Input
+function tap() {
+  if (gameOver) resetGame();
+  else duck.v = flap;
+}
+addEventListener("touchstart", tap);
+addEventListener("click", tap);
+
+// Duck
+function drawDuck() {
+  ctx.beginPath();
+  ctx.arc(duck.x, duck.y, duck.r, 0, Math.PI * 2);
+  ctx.fillStyle = "#2ecc71";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(duck.x + duck.r, duck.y);
+  ctx.lineTo(duck.x + duck.r + 8, duck.y - 4);
+  ctx.lineTo(duck.x + duck.r + 8, duck.y + 4);
+  ctx.closePath();
+  ctx.fillStyle = "#f1c40f";
+  ctx.fill();
+}
+
+// Pipes
+function drawPipe(p) {
+  ctx.fillStyle = "#228B22";
+  ctx.fillRect(p.x, 0, p.w, p.top);
+  ctx.fillRect(p.x, canvas.height - p.bottom, p.w, p.bottom);
+
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  ctx.font = "14px Arial";
+  ctx.translate(p.x + p.w / 2, p.top - 10);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(p.label, 0, 0);
+  ctx.restore();
+}
+
+function updatePipes() {
+  if (frame % Math.max(80 - speed * 5, 45) === 0) {
+    let top = Math.random() * (canvas.height / 2);
+    let bottom = canvas.height - top - gapSize;
+    pipes.push({
+      x: canvas.width,
+      w: 70,
+      top,
+      bottom,
+      label: problems[Math.floor(Math.random() * problems.length)]
+    });
+  }
+
+  pipes.forEach(p => {
+    p.x -= speed;
+
+    if (
+      duck.x + duck.r > p.x &&
+      duck.x - duck.r < p.x + p.w &&
+      (duck.y - duck.r < p.top ||
+       duck.y + duck.r > canvas.height - p.bottom)
+    ) gameOver = true;
+
+    if (!p.scored && p.x + p.w < duck.x) {
+      score++;
+      p.scored = true;
+      handleSpecials();
+    }
+  });
+
+  pipes = pipes.filter(p => p.x + p.w > 0);
+}
+
+// Specials
+function handleSpecials() {
+  if (score === 42 && !triggered[42]) {
+    specialText = "The answer to everything ✨";
+    triggered[42] = true;
+    specialTimer = 150;
+  }
+
+  if (score === 67 && !triggered[67]) {
+    specialEmoji = "🫱🫲";
+    triggered[67] = true;
+    specialTimer = 150;
+  }
+
+  if (score === 69 && !triggered[69]) {
+    specialText = "Nice 😏💖";
+    triggered[69] = true;
+    specialTimer = 180;
+  }
+
+  if (score === 100 && !triggered[100]) {
+    specialText = "100?? emotionally unstoppable 🏆";
+    triggered[100] = true;
+    specialTimer = 220;
+  }
+
+  if (score > 10 && score % 17 === 0) {
+    specialText = "wowwwww you're really good at avoiding problems";
+    specialTimer = 140;
+  }
+
+  // Difficulty ramp
+  speed += 0.08;
+  gapSize = Math.max(120, gapSize - 2);
+}
+
+// UI
+function drawUI() {
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 32px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText(score, canvas.width / 2, 50);
+}
+
+// Specials draw
+function drawSpecial() {
+  if (specialTimer <= 0) return;
+
+  let pulse = Math.sin(specialTimer / 8) * 10;
+  ctx.textAlign = "center";
+
+  if (specialEmoji) {
+    ctx.font = `${80 + pulse}px Arial`;
+    ctx.fillText(specialEmoji, canvas.width / 2, canvas.height / 2);
+  }
+
+  if (specialText) {
+    ctx.font = `${26 + pulse}px Arial`;
+    ctx.fillStyle = "#fff";
+    ctx.fillText(specialText, canvas.width / 2, canvas.height / 2);
+  }
+
+  specialTimer--;
+  if (specialTimer === 0) {
+    specialText = "";
+    specialEmoji = "";
+  }
+}
+
+// Loop
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  duck.v += gravity;
+  duck.y += duck.v;
+
+  if (duck.y + duck.r > canvas.height || duck.y - duck.r < 0)
+    gameOver = true;
+
+  if (!gameOver) {
+    updatePipes();
+    frame++;
+  }
+
+  pipes.forEach(drawPipe);
+  drawDuck();
+  drawUI();
+  drawSpecial();
+
+  if (gameOver) {
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 32px Arial";
+    ctx.fillText("Flap Over 💔", canvas.width / 2, canvas.height / 2 - 20);
+    ctx.font = "18px Arial";
+    ctx.fillText("Tap to restart", canvas.width / 2, canvas.height / 2 + 20);
+  }
+
+  requestAnimationFrame(update);
+}
+
+update();
+</script>
+
+</body>
+</html>
